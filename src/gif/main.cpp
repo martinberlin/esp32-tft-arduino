@@ -1,5 +1,6 @@
 // ESP32 GIF Video demo
 #define GIF_FILENAME "/teamMadokaRetro240.gif"
+#define GIF_LOOP true
 
 #include <WiFi.h>
 #include <SPIFFS.h>
@@ -56,6 +57,7 @@ void setup()
           Serial.println(F("GIF video start"));
           gfx->setAddrWindow((gfx->width() - gif->width) / 2, (gfx->height() - gif->height) / 2, gif->width, gif->height);
           int t_fstart, t_delay = 0, t_real_delay, res, delay_until;
+          
           while (1)
           {
             t_fstart = millis();
@@ -68,10 +70,15 @@ void setup()
             }
             else if (res == 0)
             {
-              // Serial.println(F("gd_rewind()."));
-              // gd_rewind(gif);
-              // continue;
-              break; // exit while loop instead of loop back
+              // Loop 
+              if (GIF_LOOP) {
+                  Serial.println(F("gd_rewind()."));
+                  gd_rewind(gif);
+                  continue;
+              }  else {
+                break; // exit while loop instead of loop back
+              }
+              
             }
 
             gfx->startWrite();
