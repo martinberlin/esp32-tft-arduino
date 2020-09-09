@@ -1,5 +1,5 @@
 /* Video src: https://youtu.be/iN9PV8e-Rh0 */
-#define MJPEG_FILENAME "/220_24fps.mjpeg"
+//#define MJPEG_FILENAME "/320_gif_24fps.mjpeg"
 
 //Adjust for different width size
 //#define MJPEG_BUFFER_SIZE (220 * 176 * 2 / 4)
@@ -56,11 +56,13 @@ void setup()
   else
   {
 
-    File vFile = SPIFFS.open(MJPEG_FILENAME);
+    File root = SPIFFS.open("/");
+    File vFile = root.openNextFile();
     if (!vFile || vFile.isDirectory())
     {
-      Serial.println(F("ERROR: Failed to open " MJPEG_FILENAME " file for reading"));
-      gfx->println(F("ERROR: Failed to open " MJPEG_FILENAME " file for reading"));
+      Serial.printf("ERROR: Failed to open file %s for reading", vFile.name());
+      gfx->printf("ERROR: Failed to open file %s for reading", vFile.name());
+      return;
     }
     else
     {
