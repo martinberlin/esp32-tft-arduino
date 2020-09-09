@@ -1,5 +1,6 @@
-/* Video src: https://youtu.be/iN9PV8e-Rh0 */
-//#define MJPEG_FILENAME "/320_gif_24fps.mjpeg"
+// ESP32 Video demo
+// This demo will just read the first file of SPIFFS, that has a max. size with this partition setup of:
+// 2031616 (About 2 Mb)   Make sure to upload a mjpeg and not any other video format
 
 //Adjust for different width size
 //#define MJPEG_BUFFER_SIZE (220 * 176 * 2 / 4)
