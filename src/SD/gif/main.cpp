@@ -34,10 +34,9 @@ void setup()
   gfx->begin();
   gfx->fillScreen(BLACK);
 
-  // Cannot set custom pins like this: 
-  // int8_t sck, int8_t miso, int8_t mosi, int8_t ss
-  // hspi->begin(14, 12, 13, SSD_CS);
+  
   // Init SPI for SD Card
+  hspi.begin(SSD_CLK,SSD_MISO,SSD_MOSI,SSD_CS);
   if (!SD.begin(SSD_CS, hspi, 80000000)) /* SPI bus mode */
   {
     Serial.println(F("ERROR: SD card mount failed!"));
