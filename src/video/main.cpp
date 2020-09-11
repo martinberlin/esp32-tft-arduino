@@ -59,6 +59,7 @@ void setup()
 
     File root = SPIFFS.open("/");
     File vFile = root.openNextFile();
+    
     if (!vFile || vFile.isDirectory())
     {
       Serial.printf("ERROR: Failed to open file %s for reading", vFile.name());
