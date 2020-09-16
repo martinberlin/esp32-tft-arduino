@@ -38,74 +38,76 @@ void printCardInfo(uint8_t cardType, uint64_t cardSize){
 
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
 }
+void loop(){}
 
 void setup(){
-  WiFi.mode(WIFI_OFF);
-  Serial.begin(115200);
+      WiFi.mode(WIFI_OFF);
+      Serial.begin(115200);
 
-  // Init Video
-  gfx->begin();
-  gfx->fillScreen(BLACK);
+      // Init Video
+      gfx->begin();
+      gfx->fillScreen(BLACK);
 
-  
-  // Init SPI for SD Card
-  hspi.begin(SSD_CLK,SSD_MISO,SSD_MOSI,SSD_CS);
-  if (!SD.begin(SSD_CS, hspi, 80000000)) /* SPI bus mode */
-  {
-    Serial.println(F("ERROR: SD card mount failed!"));
-    gfx->println(F("ERROR: SD card mount failed!"));
-    return;
-  }
+      
+      // Init SPI for SD Card
+      hspi.begin(SSD_CLK,SSD_MISO,SSD_MOSI,SSD_CS);
+      if (!SD.begin(SSD_CS, hspi, 80000000)) /* SPI bus mode */
+      {
+        Serial.println(F("ERROR: SD card mount failed!"));
+        gfx->println(F("ERROR: SD card mount failed!"));
+        return;
+      }
   
   
     uint8_t sdType = SD.cardType();
  
-  if(sdType == CARD_NONE){
+    if(sdType == CARD_NONE){
     Serial.println("No SD card attached");
     return;
     }
 
- printCardInfo(sdType, SD.cardSize() / (1024 * 1024));
+    printCardInfo(sdType, SD.cardSize() / (1024 * 1024));
 
     File root = SD.open("/");
-    uint8_t type=0; // 1 = GIF  2 = MJPG
-
 
     while (File vFile = root.openNextFile()) {
         if (!vFile || vFile.isDirectory())
         {
-          Serial.printf("ERROR: Failed to open file %s for reading", vFile.name());
-          gfx->printf("ERROR: Failed to open file %s for reading", vFile.name());
-          return;
-        }
-
-        gd_GIF *gif = gd_open_gif(&vFile);
-        if (!gif)
-        {
-            Serial.println(F("Not a GIF, trying MJPEG"));
-            type = 2;
-            //gfx->println(F("ERROR: gd_open_gif() failed!"));
+          Serial.printf("ERROR: Failed to open file %s for reading\n", vFile.name());
+          //gfx->printf("ERROR: Failed to open file %s for reading", vFile.name());
+          delay(600);
+          continue;
         } else {
-            type = 1;
+          Serial.printf("Opening %s for reading\n", vFile.name());
         }
 
-        if (type==1) {
-          
+        // Extension check
+        char* filename = (char *)vFile.name();
+
+        if (strstr(strlwr(filename+ (strlen(filename) - 4)), ".gif")) {
+        gd_GIF *gif = gd_open_gif(&vFile);
+        if (!gif) {
+          Serial.println(F("ERROR: gd_open_gif() failed!"));
+          gfx->println(F("ERROR: gd_open_gif() failed!"));
+          delay(1000);
+          continue;    
+        }
+
           int32_t s = gif->width * gif->height;
           uint8_t *buf = (uint8_t *)malloc(s);
 
             if (!buf) {
-              Serial.println(F("buf malloc failed!"));
-              return;
+              Serial.println(F("GIF malloc failed. Continue with next file"));
+              continue;
             }
             else
             {
-              Serial.println(F("GIF video start"));
               gfx->setAddrWindow((gfx->width() - gif->width) / 2, (gfx->height() - gif->height) / 2, gif->width, gif->height);
               int t_fstart, t_delay = 0, t_real_delay, res, delay_until;
-              
+              uint8_t loop = 0;
               while (1)
               {
+
                 t_fstart = millis();
                 t_delay = gif->gce.delay * 10;
                 res = gd_get_frame(gif, buf);
@@ -117,30 +119,35 @@ void setup(){
                 else if (res == 0)
                 {
                   // Loop 
-                  Serial.println(F("GIF ended"));
-                  //gd_rewind(gif); //To loop gif
-                  vFile.close();
-                  continue;
-                                  
+                  loop++;
+                  Serial.printf("GIF ended, loop: %d", loop);
+                  if (loop<2) {
+                    gd_rewind(gif); //To loop gif
+                  } else {
+                    vFile.close();
+                    continue;
+                  }        
                 }
 
                 gfx->startWrite();
                 gfx->writeIndexedPixels(buf, gif->palette->colors, s);
                 gfx->endWrite();
-
-                t_real_delay = t_delay - (millis() - t_fstart);
-                delay_until = millis() + t_real_delay;
-                // do
-                // {
-                //   delay(1);
-                // } while (millis() < delay_until);
+                //t_real_delay = t_delay - (millis() - t_fstart);
+                //delay_until = millis() + t_real_delay;
+                
               }
               Serial.println(F("GIF video end"));
               gd_close_gif(gif);
+              free(buf);
+              Serial.printf("FREE HEAP gif: %d\n",ESP.getFreeHeap());
+              continue;
             }
         }
 
-        if (type==2) {
+      
+    if (strstr(strlwr(filename+ (strlen(filename) - 4)), "jpeg")) {
+         Serial.printf("Video: %s", filename);
+
           int next_frame = 0;
           int skipped_frames = 0;
           unsigned long total_sd_mjpeg = 0;
@@ -150,17 +157,15 @@ void setup(){
           uint8_t *mjpeg_buf = (uint8_t *)malloc(MJPEG_BUFFER_SIZE);
           if (!mjpeg_buf)
           {
-            Serial.println(F("mjpeg_buf malloc failed!"));
+            Serial.println(F("MPJEG malloc failed. Continue with next file"));
+              continue;
           }
           else
           {
-            Serial.println(F("MP3 audio MJPEG video start"));
             start_ms = millis();
             curr_ms = millis();
             next_frame_ms = start_ms + (++next_frame * 1000 / FPS / 2);
-
-            mjpeg.setup(vFile, mjpeg_buf, gfx, false);
-            
+            mjpeg.setup(vFile, mjpeg_buf, gfx, false);         
 
             unsigned long start = millis();
             // Read video
@@ -185,27 +190,24 @@ void setup(){
               else
               {
                 ++skipped_frames;
-                Serial.println(F("Skip frame"));
+                //Serial.println(F("Skip frame"));
               }
 
               curr_ms = millis();
               next_frame_ms = start_ms + (++next_frame * 1000 / FPS);
             }
-            Serial.println(F("MP3 audio MJPEG video end"));
+            Serial.println("\nMJPEG video end");
             vFile.close();
+            free(mjpeg_buf);
+            Serial.printf("FREE HEAP mjpeg_buf: %d\n",ESP.getFreeHeap());
+            continue;
           }
-
-      }
-
-
     }
 
     gfx->displayOff();
+
+    ESP.restart();
     //esp_deep_sleep_start();
   }
 
-  
-
-void loop()
-{
 }
